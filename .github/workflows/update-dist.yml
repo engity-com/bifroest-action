@@ -1,0 +1,73 @@
+name: Update bundle
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      run-id:
+        description: Optional recovery run for a successful internal PR CI run; normal updates are automatic
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: update-dist-${{ github.event.workflow_run.id || inputs.run-id }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'pull_request')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      SOURCE_RUN_ID: ${{ github.event.workflow_run.id || inputs.run-id }}
+    steps:
+      # Only trusted default-branch tooling is ever executed in this workflow.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          cache: false
+      - name: Validate successful CI, current internal PR head, and exact CI attempt
+        id: source
+        run: mise run ci:update-dist
+        env:
+          BUNDLE_UPDATE_MODE: inspect
+          READ_TOKEN: ${{ github.token }}
+      - name: Download the two inert bundle files from that exact CI run
+        if: steps.source.outputs.eligible == 'true'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ${{ steps.source.outputs.artifact }}
+          path: ${{ runner.temp }}/incoming-dist
+          run-id: ${{ env.SOURCE_RUN_ID }}
+          github-token: ${{ github.token }}
+      - name: Create narrowly scoped token using the existing GitHub App
+        if: steps.source.outputs.eligible == 'true'
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ secrets.DEPENDENCY_UPDATES_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DEPENDENCY_UPDATES_APP_PRIVATE_KEY }}
+          permission-contents: write
+      - name: Update only dist files without checking out or executing PR code
+        if: steps.source.outputs.eligible == 'true'
+        run: mise run ci:update-dist
+        env:
+          BUNDLE_UPDATE_MODE: update
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+          SOURCE_ATTEMPT: ${{ steps.source.outputs.attempt }}
+          SOURCE_ARTIFACT: ${{ steps.source.outputs.artifact }}
+          BUNDLE_DIRECTORY: ${{ runner.temp }}/incoming-dist
+          READ_TOKEN: ${{ github.token }}
+          WRITE_TOKEN: ${{ steps.app.outputs.token }}

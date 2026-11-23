@@ -1,0 +1,25 @@
+name: Setup Bifröst
+description: Install a verified Bifröst release and add it to PATH on Linux, Windows, and macOS.
+author: Engity GmbH
+branding:
+  icon: terminal
+  color: blue
+inputs:
+  version:
+    description: "Bifröst release selector: latest, v1, v1.2, or an exact version such as v1.0.0-beta3. Moving selectors exclude prereleases."
+    default: latest
+  edition:
+    description: "Bifröst edition: generic, or extended on Linux (requires system libraries)."
+    default: generic
+  sha256:
+    description: Optional independently trusted SHA-256 digest of the platform-specific release archive (64 hexadecimal characters).
+  token:
+    description: Optional GitHub token for release API requests and downloads. Used only with github.com, even on GitHub Enterprise Server.
+outputs:
+  version:
+    description: Exact installed release tag, including the v prefix.
+  binary-path:
+    description: Absolute path to the installed bifroest executable.
+runs:
+  using: node24
+  main: dist/index.cjs

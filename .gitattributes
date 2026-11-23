@@ -1,0 +1,4 @@
+* text=auto eol=lf
+/dist/** linguist-generated=true
+# Generated template literals can contain significant trailing whitespace.
+/dist/index.cjs -whitespace

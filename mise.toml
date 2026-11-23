@@ -1,0 +1,51 @@
+[tools]
+node = "24.14.0"
+deno = "2.9.8"
+biome = "2.6.4"
+actionlint = "1.7.12"
+shellcheck = "0.11.0"
+
+[tool_alias]
+biome = "aqua:biomejs/biome"
+actionlint = "aqua:rhysd/actionlint"
+
+[env]
+_.path = ["./node_modules/.bin"]
+DENO_NO_PACKAGE_JSON = "1"
+
+[tasks.install]
+description = "Install exactly the locked JavaScript dependencies"
+run = "npm ci --ignore-scripts"
+
+[tasks.format]
+description = "Format and fix repository sources"
+run = "biome check --write ."
+
+[tasks.lint]
+description = "Check formatting, types, and workflows"
+depends = ["lint:types", "lint:tasks"]
+run = ["biome check .", "actionlint"]
+
+[tasks."lint:types"]
+description = "Type-check the Node action and its tests"
+run = "tsc --noEmit"
+
+[tasks."lint:tasks"]
+description = "Type-check the Deno file tasks and their tests"
+run = "deno check --no-config --no-lock --node-modules-dir=none mise-tasks/build.ts mise-tasks/check/dist.ts mise-tasks/ci/update-dist.ts mise-tasks/test/download.ts test/tasks/bundle-policy.test.ts test/tasks/config.test.ts"
+
+[tasks.test]
+description = "Run Node action tests and Deno tooling tests"
+depends = ["test:action", "test:tasks"]
+
+[tasks."test:action"]
+description = "Test the action under its actual Node 24 runtime"
+run = "node --disable-warning=ExperimentalWarning --test test/*.test.ts"
+
+[tasks."test:tasks"]
+description = "Test the Deno tooling without network or subprocess permissions"
+run = "deno test --no-config --no-lock --no-npm --no-remote --allow-read --allow-write --allow-env test/tasks"
+
+[tasks.check]
+description = "Run all pre-merge checks"
+depends = ["lint", "test", "check:dist"]

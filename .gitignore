@@ -1,0 +1,6 @@
+/.idea
+/var
+/node_modules/
+/coverage/
+/mise.local.toml
+/.env

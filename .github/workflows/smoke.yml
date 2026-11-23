@@ -1,0 +1,51 @@
+name: Release download matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact release or stable selector to download on all supported platforms
+        default: v1.0.0-beta3
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Download (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          [
+            ubuntu-24.04,
+            ubuntu-24.04-arm,
+            windows-2025,
+            windows-11-arm,
+            macos-15-intel,
+            macos-15,
+          ]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          install_args: node deno aqua:biomejs/biome
+      - run: mise run install
+      - run: mise run check:dist
+      - run: mise run test:download
+        env:
+          BIFROEST_TEST_VERSION: ${{ inputs.version }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Install through the actual action metadata
+        uses: ./
+        with:
+          version: ${{ inputs.version }}
+          token: ${{ github.token }}
+      - name: Verify PATH propagation into a separate workflow step
+        run: bifroest version

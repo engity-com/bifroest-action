@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        runner:
+          - ubuntu-24.04
+          - ubuntu-24.04-arm
+          - windows-2025
+          - windows-11-arm
+          - macos-15-intel
+          - macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          install_args: node deno aqua:biomejs/biome
+      - run: mise run install
+      - run: mise run lint:types
+      - run: mise run lint:tasks
+      - run: mise run test
+
+  build:
+    name: Build bundle
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+      - run: mise run install
+      - run: mise run lint
+      - run: mise run build
+      - name: Upload generated bundle, never credentials or executable build scripts
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: dist-${{ github.event.pull_request.head.sha }}-${{ github.run_attempt }}
+          path: |
+            dist/index.cjs
+            dist/licenses.txt
+          if-no-files-found: error
+          retention-days: 7
+
+  stable-download:
+    name: Stable download (${{ matrix.runner }}, ${{ matrix.edition }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, edition: generic }
+          - { runner: ubuntu-24.04-arm, edition: generic }
+          - { runner: ubuntu-24.04, edition: extended }
+          - { runner: ubuntu-24.04-arm, edition: extended }
+          - { runner: windows-2025, edition: generic }
+          - { runner: windows-11-arm, edition: generic }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          install_args: node deno aqua:biomejs/biome
+      - run: mise run install
+      - run: mise run build
+      - run: mise run test:download
+        env:
+          BIFROEST_TEST_VERSION: v0.7.7
+          BIFROEST_TEST_EDITION: ${{ matrix.edition }}
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Install through the actual action metadata
+        uses: ./
+        with:
+          version: v0.7.7
+          edition: ${{ matrix.edition }}
+          token: ${{ github.token }}
+      - name: Verify PATH propagation into a separate workflow step
+        run: bifroest version
+
+  required:
+    name: CI passed
+    if: always()
+    needs: [test, build, stable-download]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all checks
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: test "$RESULTS" = 'success,success,success'
