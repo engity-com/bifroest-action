@@ -76,7 +76,7 @@ For fork contributions, review and transfer the changes to an internal branch. T
 
 ## Publishing releases
 
-**Publication is not yet gated by a release workflow.** The tag-triggered bundle check runs after a tag exists and cannot prevent callers using it or an administrator manually publishing a release. Do not claim otherwise.
+**Publication is still manual and is not gated by a release workflow.** The tag-triggered bundle check runs after a tag exists and cannot prevent callers using it or an administrator manually publishing a release. The automatic major-tag updater runs after publication; it is not a publication gate.
 
 Before publishing an action release:
 
@@ -84,7 +84,19 @@ Before publishing an action release:
 2. Run **Release download matrix** against the intended Bifröst baseline. That release must have assets for all claimed platforms, including macOS. Prepared jobs are not evidence of passing coverage.
 3. Create the full SemVer action tag, such as `v1.0.0`, at that exact commit and publish the GitHub release and Marketplace entry.
 4. Keep full version tags immutable; enable immutable releases where available.
-5. After successful stable publication, move the compatible major alias, such as `v1`. Do not attach an immutable release to that movable alias.
+5. The **Update major release tag** workflow automatically advances the corresponding major alias, such as `v1`, after stable publication. No manual tag command is needed. Do not attach an immutable release to that movable alias.
+
+### Automatic major aliases
+
+Publishing `v1.0.1` automatically updates `v1` to that exact release commit if no higher stable `1.x.y` tag exists. Publishing a 2.x release similarly updates `v2`; later stable 1.x patches can still advance `v1`. Comparisons use SemVer precedence, never publication dates, API order, or GitHub's “Latest” flag. The updater reads **all tag pages**, including stable version tags that do not yet have a published release; a higher such tag blocks promotion of an older release.
+
+Drafts, GitHub prereleases, prerelease tag names such as `v1.1.0-beta1`, and incomplete version names are excluded. Complete stable SemVer tags with or without `v` are accepted. Build metadata does not affect precedence; equally ranked tags must point to the same commit, otherwise the updater fails rather than choosing arbitrarily. Annotated release tags are resolved to their commit before updating the major alias.
+
+The workflow runs on release publication, stable promotion, and edits. It rechecks the current release and tag set before writing. Concurrent runs use GitHub's atomic `updateRefs` operation with `beforeOid`, including a zero object ID when creating a missing alias. A stale run cannot overwrite a newer alias update. Duplicate events are harmless; an already correct alias creates no write. Different release IDs are not put in one shared pending queue, since GitHub can replace pending runs and lose a different major's update.
+
+The only writable reference is the derived `refs/tags/v<major>` alias. Full version tags, branches, releases, and source files are never modified or deleted. The job executes trusted `main` tooling without restoring tool caches and uses only a repository-scoped `GITHUB_TOKEN` with `contents: write`; no App secrets or personal token are required. A tag rule must permit this token to create or update moving major aliases. Keep immutable full-version tags protected separately.
+
+The workflow and task must already be present in the released revision and on `main`. Adding this automation does not retroactively process previously published releases. If an update fails because of token permissions or tag protection, correct the setting and rerun the failed workflow; no manual retagging is needed.
 
 For enforced publication, a future trusted workflow must verify a specific protected `main` commit first and create its tag/release only in a later privileged job. Restrict full-version tag creation, movement, and deletion through GitHub repository rules.
 

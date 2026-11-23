@@ -4,6 +4,8 @@ Install [Bifröst](https://github.com/engity-com/bifroest) in a GitHub Actions j
 
 Use `@v1` for compatible action updates, or pin a reviewed full commit SHA for production.
 
+The `v1` tag is updated automatically when the highest stable `1.x.y` action release is published. Prereleases do not move it.
+
 ## Quick start
 
 Save this as `.github/workflows/bifroest.yml`:

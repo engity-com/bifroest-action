@@ -7,6 +7,7 @@ const entrypoints = [
     "build.ts",
     "check/dist.ts",
     "ci/update-dist.ts",
+    "ci/update-major-tag.ts",
     "test/download.ts",
 ];
 
@@ -34,6 +35,38 @@ Deno.test("file tasks explicitly disable project manifests and lock discovery", 
             );
         }
     }
+});
+
+Deno.test("major aliases update automatically from trusted main with only the repository token", async () => {
+    const workflow = await Deno.readTextFile(
+        path.join(root, ".github/workflows/update-major-tag.yml"),
+    );
+    assert.match(
+        workflow,
+        /release:\s*\n\s*types: \[published, released, edited\]/,
+    );
+    assert.match(workflow, /ref: main/);
+    assert.match(workflow, /persist-credentials: false/);
+    assert.match(workflow, /cache: false/);
+    assert.match(workflow, /contents: write/);
+    assert.match(
+        workflow,
+        /release\.draft == false && github\.event\.release\.prerelease == false/,
+    );
+    assert.match(
+        workflow,
+        /group: major-tag-release-\$\{\{ github\.event\.release\.id \}\}/,
+    );
+    assert.match(workflow, /mise run ci:update-major-tag/);
+    assert.match(workflow, /GITHUB_TOKEN: \$\{\{ github\.token \}\}/);
+    assert.match(
+        workflow,
+        /RELEASE_ID: \$\{\{ github\.event\.release\.id \}\}/,
+    );
+    assert.doesNotMatch(
+        workflow,
+        /secrets\.|workflow_dispatch|pull_request_target|git push/,
+    );
 });
 
 async function sources(directory: string): Promise<string[]> {

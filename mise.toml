@@ -32,7 +32,7 @@ run = "tsc --noEmit"
 
 [tasks."lint:tasks"]
 description = "Type-check the Deno file tasks and their tests"
-run = "deno check --no-config --no-lock --node-modules-dir=none mise-tasks/build.ts mise-tasks/check/dist.ts mise-tasks/ci/update-dist.ts mise-tasks/test/download.ts test/tasks/bundle-policy.test.ts test/tasks/config.test.ts"
+run = "deno check --no-config --no-lock --node-modules-dir=none mise-tasks/build.ts mise-tasks/check/dist.ts mise-tasks/ci/update-dist.ts mise-tasks/ci/update-major-tag.ts mise-tasks/test/download.ts test/tasks/bundle-policy.test.ts test/tasks/config.test.ts test/tasks/release-policy.test.ts"
 
 [tasks.test]
 description = "Run Node action tests and Deno tooling tests"

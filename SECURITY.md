@@ -31,3 +31,7 @@ The cache stores verified archives, keyed by resolved version, platform, edition
 Build jobs do not receive App credentials or repository write permissions. The separate writer executes trusted default-branch tooling and treats build artifacts only as data. It accepts only the two fixed distribution files, each a regular non-symlink file with one hard link and a maximum size of 16 MiB, in a non-symlink directory. It does not execute their contents.
 
 The writer's App token has repository-wide `contents: write`; it is not inherently path-scoped. The trusted writer enforces the fixed paths, PR branch, source SHA, and CI provenance. Code review and enforced branch protection remain necessary before merging. See [repository maintenance](docs/maintaining.md) for setup and the complete publication limitations.
+
+## Automated major release tags
+
+The post-publication updater executes only trusted `main` tooling and does not execute the published release's code. Its repository-scoped `GITHUB_TOKEN` has `contents: write`; the task restricts mutations to the stable release's derived `refs/tags/v<major>` alias. It never modifies full version tags or branches, and does not use App secrets. All tag pages, current release flags, the source tag, and concurrent alias changes are checked before the conditional update. Moving major aliases are intentionally mutable and are not a replacement for a reviewed full commit SHA pin.

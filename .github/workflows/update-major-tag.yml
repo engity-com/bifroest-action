@@ -1,0 +1,40 @@
+name: Update major release tag
+
+on:
+  release:
+    types: [published, released, edited]
+
+permissions:
+  contents: read
+
+# Do not use one repository-wide concurrency group: GitHub replaces pending
+# runs, which could otherwise lose updates for a different major series.
+# Concurrent releases are protected by an atomic beforeOid check in the task.
+concurrency:
+  group: major-tag-release-${{ github.event.release.id }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    if: github.event.release.draft == false && github.event.release.prerelease == false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Never execute code from the newly published release with a write token.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          install_args: deno
+          cache: false
+      - name: Advance only the highest stable release's major tag
+        run: mise run ci:update-major-tag
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ github.event.release.id }}
+          MAJOR_TAG_MODE: update
