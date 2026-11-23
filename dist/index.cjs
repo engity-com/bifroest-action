@@ -62,4 +62,3 @@ undici/lib/web/fetch/body.js:
 undici/lib/web/websocket/frame.js:
   (*! ws. MIT License. Einar Otto Stangvik <einaros@gmail.com> *)
 */
-// Temporary stale-bundle fixture: the automatic writer must remove this line.
