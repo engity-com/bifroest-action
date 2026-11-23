@@ -1,0 +1,62 @@
+name: Temporary release end-to-end test
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@236a21c3b91f5db6d4e174b348674a0f0caac06d # v5.2.9
+        with:
+          version: 2026.10.17
+          install_args: deno
+      - name: Install from the temporary published release
+        id: first
+        uses: engity-com/bifroest-action@v0.0.0-e2e.20261123.1
+        with:
+          version: v1.0.0-beta3
+          sha256: fde1ea0c324f458edbd970880ff34fb297f0b1419524bf1a2fda90b743583b04
+          token: ${{ github.token }}
+      - name: Install again from the verified tool cache
+        id: second
+        uses: engity-com/bifroest-action@v0.0.0-e2e.20261123.1
+        with:
+          version: v1.0.0-beta3
+          sha256: fde1ea0c324f458edbd970880ff34fb297f0b1419524bf1a2fda90b743583b04
+          token: ${{ github.token }}
+      - name: Reject an incorrect independent digest
+        id: pin
+        continue-on-error: true
+        uses: engity-com/bifroest-action@v0.0.0-e2e.20261123.1
+        with:
+          version: v1.0.0-beta3
+          sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+          token: ${{ github.token }}
+      - name: Do not substitute a prerelease for a stable major selector
+        id: range
+        continue-on-error: true
+        uses: engity-com/bifroest-action@v0.0.0-e2e.20261123.1
+        with:
+          version: v1
+          token: ${{ github.token }}
+      - name: Assert outputs, CLI, PATH, cache isolation, and expected failures
+        run: mise run test:action-e2e
+        env:
+          FIRST_VERSION: ${{ steps.first.outputs.version }}
+          FIRST_PATH: ${{ steps.first.outputs.binary-path }}
+          SECOND_VERSION: ${{ steps.second.outputs.version }}
+          SECOND_PATH: ${{ steps.second.outputs.binary-path }}
+          PIN_OUTCOME: ${{ steps.pin.outcome }}
+          PIN_VERSION: ${{ steps.pin.outputs.version }}
+          PIN_PATH: ${{ steps.pin.outputs.binary-path }}
+          RANGE_OUTCOME: ${{ steps.range.outcome }}
+          RANGE_VERSION: ${{ steps.range.outputs.version }}
+          RANGE_PATH: ${{ steps.range.outputs.binary-path }}
